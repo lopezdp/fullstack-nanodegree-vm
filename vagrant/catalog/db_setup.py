@@ -30,6 +30,13 @@ class Restaurant(Base):
         primary_key = True
     )
 
+    @property
+    def serialize(self):
+        return {
+            'name' : self.name,
+            'id' : self.id,
+        }
+
 class MenuItem(Base):
 
     # Tables
@@ -65,6 +72,17 @@ class MenuItem(Base):
     )
 
     restaurant = relationship(Restaurant)
+
+    @property
+    def serialize(self):
+        # Returns object data in serialized format
+        return {
+            'name' : self.name,
+            'description' : self.description,
+            'id' : self.id,
+            'price' : self.price,
+            'course' : self.course,
+        }
 
 # Insert at EOF
 engine = create_engine('sqlite:///restaurantmenu.db')

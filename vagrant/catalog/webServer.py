@@ -30,6 +30,7 @@ class webserverHandler(BaseHTTPRequestHandler):
         try:
             if self.path.endswith("/restaurants"):
                 restaurants = session.query(Restaurant).all()
+
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
@@ -43,9 +44,9 @@ class webserverHandler(BaseHTTPRequestHandler):
                 for restaurant in restaurants:
                     output += restaurant.name
                     output += "</br>"
-                    output += "<a href='#'>Edit</a>"
+                    output += "<a href='/restaurants/%s/edit'>Edit</a>" % restaurant.id
                     output += "</br>"
-                    output += "<a href='#'>Delete</a>"
+                    output += "<a href='/restaurants/%s/delete'>Delete</a>" % restaurant.id
                     output += "</br>"
                     output += "</br>"
 
@@ -53,6 +54,48 @@ class webserverHandler(BaseHTTPRequestHandler):
                 self.wfile.write(output.encode())
                 print(output)
                 return
+
+            if self.path.endswith("/delete"):
+                restaurantIDPath = self.path.split("/")[2]
+                myRestQueryID = session.query(Restaurant).filter_by(id = restaurantIDPath).one()
+
+                if myRestQueryID != []:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+
+                    output = ""
+                    output += "<html><body>"
+                    output += "<h1> Are you sure you want to Delete: %s ?" % myRestQueryID.name
+                    output += "</h1>"
+
+                    output += "<form method='POST' enctype='multipart/form-data' action='/restaurants/%s/delete'> " % restaurantIDPath 
+                    output += "<input type='submit' value='Delete'> </form>"
+                    output += "</body></html>"
+                    self.wfile.write(output.encode())
+
+            if self.path.endswith("/edit"):
+                restaurantIDPath = self.path.split("/")[2]
+
+                myRestQueryID = session.query(Restaurant).filter_by(id = restaurantIDPath).one()
+
+                if myRestQueryID != []:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+
+                    output = ""
+                    output += "<html><body>"
+                    output += "<h1>"
+                    output += myRestQueryID.name
+                    output += "</h1>"
+
+                    output += "<form method='POST' enctype='multipart/form-data' action='/restaurants/%s/edit'> " % restaurantIDPath 
+                    output += "<input name='newRestaurantName' type='text' placeholder = '%s'> " % myRestQueryID.name 
+                    output += "<input type='submit' value='Rename'> </form>"
+
+                    output += "</body></html>"
+                    self.wfile.write(output.encode())
 
             if self.path.endswith("/restaurants/new"):
                 self.send_response(200)
@@ -61,11 +104,10 @@ class webserverHandler(BaseHTTPRequestHandler):
 
                 output = ""
                 output += "<html><body>"
-                output += "Add new restaurant"
-                output += "</br>"
-                output += "</br>"
 
-                output += "<form method='POST' enctype='multipart/form-data' action='/restaurants/new'> <h2>Add New</h2> <input name='message' type='text'> <input type='submit' value='Submit'> </form>"
+                output += "<form method='POST' enctype='multipart/form-data' action='/restaurants/new'> "
+                output += "<h2>Add New Restaurant</h2> <input name='newRestaurantName' type='text' placeholder = 'New Restaurant Name'> "
+                output += "<input type='submit' value='Create'> </form>"
 
                 output += "</body></html>"
 
@@ -73,6 +115,7 @@ class webserverHandler(BaseHTTPRequestHandler):
                 print(output)
                 return
 
+            '''
             if self.path.endswith("/hello"):
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html')
@@ -104,12 +147,71 @@ class webserverHandler(BaseHTTPRequestHandler):
                 self.wfile.write(output.encode())
                 print(output)
                 return
+            '''
 
         except IOError:
             self.send_error(404, 'File Not Found %s' % self.path)
 
     def do_POST(self):
         try:
+            if self.path.endswith("/restaurants/new"):
+                ctype, pdict = cgi.parse_header(self.headers['Content-type'])
+
+                if ctype == 'multipart/form-data':
+                    pdict['boundary'] = bytes(pdict['boundary'], 'utf-8')
+                    fields = cgi.parse_multipart(self.rfile, pdict)
+                    messagecontent = fields.get('newRestaurantName')[0].decode('utf-8')
+
+                # Create new restaurant class
+                newRestaurant = Restaurant(name = messagecontent)
+                session.add(newRestaurant)
+                session.commit()
+
+                self.send_response(301)
+                self.send_header('Content-type', 'text/html')
+                self.send_header('Location', '/restaurants')
+                self.end_headers()
+
+            if self.path.endswith("/edit"):
+                ctype, pdict = cgi.parse_header(self.headers['Content-type'])
+
+                if ctype == 'multipart/form-data':
+                    pdict['boundary'] = bytes(pdict['boundary'], 'utf-8')
+                    fields = cgi.parse_multipart(self.rfile, pdict)
+                    messagecontent = fields.get('newRestaurantName')[0].decode('utf-8')
+                    restaurantIDPath = self.path.split("/")[2]
+
+                myRestQuery = session.query(Restaurant).filter_by(id = restaurantIDPath).one()
+                if myRestQuery != []:
+                    myRestQuery.name = messagecontent
+                    session.add(myRestQuery)
+                    session.commit()
+
+                    self.send_response(301)
+                    self.send_header('Content-type', 'text/html')
+                    self.send_header('Location', '/restaurants')
+                    self.end_headers()
+
+            if self.path.endswith("/delete"):
+                ctype, pdict = cgi.parse_header(self.headers['Content-type'])
+
+                restaurantIDPath = self.path.split("/")[2]
+
+                myRestQuery = session.query(Restaurant).filter_by(id = restaurantIDPath).one()
+
+                if myRestQuery != []:
+                    session.delete(myRestQuery)
+                    session.commit()
+
+                    self.send_response(301)
+                    self.send_header('Content-type', 'text/html')
+                    self.send_header('Location', '/restaurants')
+                    self.end_headers()
+
+
+
+
+            '''
             self.send_response(301)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -132,6 +234,7 @@ class webserverHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(output.encode('utf-8'))
             print(output)
+            '''
 
         except:
             pass
@@ -163,13 +266,14 @@ OBJECTIVES:
 2. add, edit, & delete links
     [x] after the name of each db there are links to edit & delete
 3. create new restaurants
-    [] there is a page with a form to create a new restaurant
-    [] localhost:8080/restaurants/new
+    [x] there is a page with a form to create a new restaurant
+    [x] localhost:8080/restaurants/new
+    [x] generate POST request to create new in db
 4. rename a restaurant
-    [] users can rename a restaurant by visiting
-    [] localhost:8080/restaurants/id/edit
+    [x] users can rename a restaurant by visiting
+    [x] localhost:8080/restaurants/id/edit
 5. delete a restaurant
-    [] clicking delete takes user to confirmation page that sends 
+    [x] clicking delete takes user to confirmation page that sends 
     POST cmd to db to delete selected restaurant
 
 '''
